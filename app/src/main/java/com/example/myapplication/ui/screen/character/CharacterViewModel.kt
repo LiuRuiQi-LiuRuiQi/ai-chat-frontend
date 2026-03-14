@@ -1,0 +1,67 @@
+package com.example.myapplication.ui.screen.character
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.local.entity.CharacterEntity
+import com.example.myapplication.data.repository.CharacterRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/**
+ * 角色列表 ViewModel
+ */
+class CharacterViewModel(
+    private val repository: CharacterRepository
+) : ViewModel() {
+
+    val characters: StateFlow<List<CharacterEntity>> =
+        repository.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _currentCharacter = MutableStateFlow<CharacterEntity?>(null)
+    val currentCharacter: StateFlow<CharacterEntity?> = _currentCharacter
+
+    /**
+     * 根据 ID 加载角色
+     */
+    fun loadCharacterById(id: Long) {
+        viewModelScope.launch {
+            _currentCharacter.value = repository.getById(id)
+        }
+    }
+
+    /**
+     * 创建或更新角色（支持分字段参数）
+     */
+    fun upsertCharacter(
+        id: Long? = null,
+        name: String,
+        description: String,
+        greeting: String
+    ) {
+        viewModelScope.launch {
+            val entity = CharacterEntity(
+                id = id ?: 0,
+                name = name,
+                description = description,
+                greeting = greeting
+            )
+            repository.upsert(entity)
+            _currentCharacter.value = null
+        }
+    }
+
+    /**
+     * 创建或更新角色（直接传入实体）
+     */
+    fun upsertCharacter(entity: CharacterEntity) {
+        viewModelScope.launch { repository.upsert(entity) }
+    }
+
+    fun deleteCharacter(entity: CharacterEntity) {
+        viewModelScope.launch { repository.delete(entity) }
+    }
+}

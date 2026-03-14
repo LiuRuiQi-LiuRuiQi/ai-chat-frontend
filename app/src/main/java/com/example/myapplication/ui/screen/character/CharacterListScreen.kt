@@ -1,0 +1,82 @@
+package com.example.myapplication.ui.screen.character
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import com.example.myapplication.data.local.entity.CharacterEntity
+import com.example.myapplication.ui.screen.character.CharacterViewModel
+
+/**
+ * 角色列表页
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CharacterListScreen(
+    viewModel: CharacterViewModel,
+    onBack: () -> Unit,
+    onCreateCharacter: () -> Unit,
+    onSelectCharacter: (CharacterEntity) -> Unit
+) {
+    val list by viewModel.characters.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = "角色") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onCreateCharacter) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add")
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(list) { item ->
+                ListItem(
+                    headlineContent = { Text(text = item.name) },
+                    supportingContent = {
+                        if (item.description.isNotBlank()) {
+                            Text(text = item.description)
+                        }
+                    },
+                    modifier = Modifier.clickable { onSelectCharacter(item) }
+                )
+            }
+        }
+    }
+}

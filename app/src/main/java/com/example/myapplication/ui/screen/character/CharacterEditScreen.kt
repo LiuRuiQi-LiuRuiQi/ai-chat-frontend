@@ -1,0 +1,149 @@
+package com.example.myapplication.ui.screen.character
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.myapplication.ChatApp
+import kotlinx.coroutines.launch
+
+/**
+ * 角色编辑页（创建/编辑）
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CharacterEditScreen(
+    characterId: Long?,
+    onNavigateBack: () -> Unit,
+    viewModel: CharacterViewModel = viewModel(
+        factory = (LocalContext.current.applicationContext as ChatApp).viewModelFactory
+    )
+) {
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var greeting by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // 如果是编辑模式，加载现有数据
+    LaunchedEffect(characterId) {
+        if (characterId != null && characterId > 0) {
+            viewModel.loadCharacterById(characterId)
+        }
+    }
+
+    val currentCharacter by viewModel.currentCharacter.collectAsState()
+
+    LaunchedEffect(currentCharacter) {
+        currentCharacter?.let {
+            name = it.name
+            description = it.description
+            greeting = it.greeting
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (characterId == null || characterId <= 0) "新建角色" else "编辑角色") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("角色名称") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("角色描述") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                maxLines = 5
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = greeting,
+                onValueChange = { greeting = it },
+                label = { Text("开场白（可选）") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                maxLines = 4
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        isSaving = true
+                        coroutineScope.launch {
+                            viewModel.upsertCharacter(
+                                id = characterId?.takeIf { it > 0 },
+                                name = name,
+                                description = description,
+                                greeting = greeting
+                            )
+                            onNavigateBack()
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = name.isNotBlank() && !isSaving
+            ) {
+                Text(if (isSaving) "保存中..." else "保存")
+            }
+        }
+    }
+}

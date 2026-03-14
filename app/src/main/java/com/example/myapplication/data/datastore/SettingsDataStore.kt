@@ -1,0 +1,108 @@
+package com.example.myapplication.data.datastore
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+/** DataStore 扩展属性 */
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
+
+/**
+ * 应用设置存储 - 使用 DataStore Preferences
+ * 存储轻量级配置项（如当前选中的提供者 ID、主题模式等）
+ */
+class SettingsDataStore(private val context: Context) {
+
+    companion object {
+        /** 当前激活的提供者 ID */
+        val KEY_ACTIVE_PROVIDER_ID = longPreferencesKey("active_provider_id")
+        /** 当前激活的预设 ID */
+        val KEY_ACTIVE_PRESET_ID = longPreferencesKey("active_preset_id")
+        /** 是否深色模式 */
+        val KEY_DARK_MODE = booleanPreferencesKey("dark_mode")
+        /** 发送消息时是否包含历史 */
+        val KEY_SEND_HISTORY = booleanPreferencesKey("send_history")
+        /** 最大历史消息条数 */
+        val KEY_MAX_HISTORY_COUNT = intPreferencesKey("max_history_count")
+        /** 是否启用 Markdown 渲染 */
+        val KEY_MARKDOWN_ENABLED = booleanPreferencesKey("markdown_enabled")
+    }
+
+    /** 获取当前激活的提供者 ID */
+    val activeProviderId: Flow<Long?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ACTIVE_PROVIDER_ID]
+    }
+
+    /** 设置当前激活的提供者 ID */
+    suspend fun setActiveProviderId(id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ACTIVE_PROVIDER_ID] = id
+        }
+    }
+
+    /** 获取当前激活的预设 ID */
+    val activePresetId: Flow<Long?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ACTIVE_PRESET_ID]
+    }
+
+    /** 设置当前激活的预设 ID */
+    suspend fun setActivePresetId(id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ACTIVE_PRESET_ID] = id
+        }
+    }
+
+    /** 获取深色模式设置 */
+    val isDarkMode: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DARK_MODE] ?: false
+    }
+
+    /** 设置深色模式 */
+    suspend fun setDarkMode(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DARK_MODE] = enabled
+        }
+    }
+
+    /** 获取是否发送历史消息 */
+    val isSendHistory: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_SEND_HISTORY] ?: true
+    }
+
+    /** 设置是否发送历史消息 */
+    suspend fun setSendHistory(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_SEND_HISTORY] = enabled
+        }
+    }
+
+    /** 获取最大历史消息条数 */
+    val maxHistoryCount: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[KEY_MAX_HISTORY_COUNT] ?: 20
+    }
+
+    /** 设置最大历史消息条数 */
+    suspend fun setMaxHistoryCount(count: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_MAX_HISTORY_COUNT] = count
+        }
+    }
+
+    /** 获取是否启用 Markdown 渲染（默认开启） */
+    val isMarkdownEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_MARKDOWN_ENABLED] ?: true
+    }
+
+    /** 设置是否启用 Markdown 渲染 */
+    suspend fun setMarkdownEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_MARKDOWN_ENABLED] = enabled
+        }
+    }
+
+    /** 获取数据库版本（硬编码，与 AppDatabase.version 保持一致） */
+    fun getDatabaseVersion(): Int = 8
+}

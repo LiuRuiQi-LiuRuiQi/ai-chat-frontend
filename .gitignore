@@ -1,0 +1,45 @@
+# Gradle
+.gradle/
+/build/
+*.gradle.bak
+
+# IDE
+*.iml
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Local properties
+local.properties
+/local.properties
+
+# Gradle wrapper
+!gradle/wrapper/gradle-wrapper.jar
+
+# APK files
+*.apk
+*.aab
+
+# Logs
+*.log
+*.txt
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Environment
+.env
+.env.local
