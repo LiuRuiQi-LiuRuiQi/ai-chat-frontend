@@ -72,13 +72,13 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("CREATE TABLE IF NOT EXISTS `presets` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `systemPrompt` TEXT NOT NULL, `description` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isDefault` INTEGER NOT NULL, `temperature` REAL, `topP` REAL, `maxTokens` INTEGER)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `models` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `providerId` INTEGER NOT NULL, `modelName` TEXT NOT NULL, `displayName` TEXT NOT NULL, `enabled` INTEGER NOT NULL)");
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_models_providerId_modelName` ON `models` (`providerId`, `modelName`)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `characters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `description` TEXT NOT NULL, `greeting` TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `characters` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `description` TEXT NOT NULL, `greeting` TEXT NOT NULL, `tags` TEXT NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `world_book_entries` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `keywords` TEXT NOT NULL, `content` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `priority` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `attachments` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` INTEGER NOT NULL, `messageId` INTEGER, `fileName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `localUri` TEXT NOT NULL, `extractedText` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_sessionId` ON `attachments` (`sessionId`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_messageId` ON `attachments` (`messageId`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0a5803eb431e90192d3175cc7fc04157')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1d07ef5adaa368504794ea2039f76fe9')");
       }
 
       @Override
@@ -228,11 +228,12 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoModels + "\n"
                   + " Found:\n" + _existingModels);
         }
-        final HashMap<String, TableInfo.Column> _columnsCharacters = new HashMap<String, TableInfo.Column>(4);
+        final HashMap<String, TableInfo.Column> _columnsCharacters = new HashMap<String, TableInfo.Column>(5);
         _columnsCharacters.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsCharacters.put("name", new TableInfo.Column("name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsCharacters.put("description", new TableInfo.Column("description", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsCharacters.put("greeting", new TableInfo.Column("greeting", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsCharacters.put("tags", new TableInfo.Column("tags", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysCharacters = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesCharacters = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoCharacters = new TableInfo("characters", _columnsCharacters, _foreignKeysCharacters, _indicesCharacters);
@@ -284,7 +285,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "0a5803eb431e90192d3175cc7fc04157", "4b1317a17374603f9bdf62a9fc3882eb");
+    }, "1d07ef5adaa368504794ea2039f76fe9", "115a680618c6487210ba6363fe833040");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

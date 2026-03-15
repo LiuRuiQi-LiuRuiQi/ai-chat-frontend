@@ -46,7 +46,7 @@ public final class CharacterDao_Impl implements CharacterDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `characters` (`id`,`name`,`description`,`greeting`) VALUES (nullif(?, 0),?,?,?)";
+        return "INSERT OR REPLACE INTO `characters` (`id`,`name`,`description`,`greeting`,`tags`) VALUES (nullif(?, 0),?,?,?,?)";
       }
 
       @Override
@@ -56,6 +56,7 @@ public final class CharacterDao_Impl implements CharacterDao {
         statement.bindString(2, entity.getName());
         statement.bindString(3, entity.getDescription());
         statement.bindString(4, entity.getGreeting());
+        statement.bindString(5, entity.getTags());
       }
     };
     this.__deletionAdapterOfCharacterEntity = new EntityDeletionOrUpdateAdapter<CharacterEntity>(__db) {
@@ -75,7 +76,7 @@ public final class CharacterDao_Impl implements CharacterDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE OR ABORT `characters` SET `id` = ?,`name` = ?,`description` = ?,`greeting` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `characters` SET `id` = ?,`name` = ?,`description` = ?,`greeting` = ?,`tags` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -85,7 +86,8 @@ public final class CharacterDao_Impl implements CharacterDao {
         statement.bindString(2, entity.getName());
         statement.bindString(3, entity.getDescription());
         statement.bindString(4, entity.getGreeting());
-        statement.bindLong(5, entity.getId());
+        statement.bindString(5, entity.getTags());
+        statement.bindLong(6, entity.getId());
       }
     };
   }
@@ -158,6 +160,7 @@ public final class CharacterDao_Impl implements CharacterDao {
           final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
           final int _cursorIndexOfDescription = CursorUtil.getColumnIndexOrThrow(_cursor, "description");
           final int _cursorIndexOfGreeting = CursorUtil.getColumnIndexOrThrow(_cursor, "greeting");
+          final int _cursorIndexOfTags = CursorUtil.getColumnIndexOrThrow(_cursor, "tags");
           final List<CharacterEntity> _result = new ArrayList<CharacterEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final CharacterEntity _item;
@@ -169,7 +172,9 @@ public final class CharacterDao_Impl implements CharacterDao {
             _tmpDescription = _cursor.getString(_cursorIndexOfDescription);
             final String _tmpGreeting;
             _tmpGreeting = _cursor.getString(_cursorIndexOfGreeting);
-            _item = new CharacterEntity(_tmpId,_tmpName,_tmpDescription,_tmpGreeting);
+            final String _tmpTags;
+            _tmpTags = _cursor.getString(_cursorIndexOfTags);
+            _item = new CharacterEntity(_tmpId,_tmpName,_tmpDescription,_tmpGreeting,_tmpTags);
             _result.add(_item);
           }
           return _result;
@@ -202,6 +207,7 @@ public final class CharacterDao_Impl implements CharacterDao {
           final int _cursorIndexOfName = CursorUtil.getColumnIndexOrThrow(_cursor, "name");
           final int _cursorIndexOfDescription = CursorUtil.getColumnIndexOrThrow(_cursor, "description");
           final int _cursorIndexOfGreeting = CursorUtil.getColumnIndexOrThrow(_cursor, "greeting");
+          final int _cursorIndexOfTags = CursorUtil.getColumnIndexOrThrow(_cursor, "tags");
           final CharacterEntity _result;
           if (_cursor.moveToFirst()) {
             final long _tmpId;
@@ -212,7 +218,9 @@ public final class CharacterDao_Impl implements CharacterDao {
             _tmpDescription = _cursor.getString(_cursorIndexOfDescription);
             final String _tmpGreeting;
             _tmpGreeting = _cursor.getString(_cursorIndexOfGreeting);
-            _result = new CharacterEntity(_tmpId,_tmpName,_tmpDescription,_tmpGreeting);
+            final String _tmpTags;
+            _tmpTags = _cursor.getString(_cursorIndexOfTags);
+            _result = new CharacterEntity(_tmpId,_tmpName,_tmpDescription,_tmpGreeting,_tmpTags);
           } else {
             _result = null;
           }
