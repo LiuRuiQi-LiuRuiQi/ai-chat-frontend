@@ -41,8 +41,11 @@ fun ChatScreen(
     val editingMessageId by viewModel.editingMessageId.collectAsState()
     val editingMessageContent by viewModel.editingMessageContent.collectAsState()
     val pendingAttachments by viewModel.pendingAttachments.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
+    val selectedModel by viewModel.selectedModel.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
+    var showModelMenu by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -87,7 +90,7 @@ fun ChatScreen(
                     .padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 会话标题
+                // 会话标题和模型选择
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -97,11 +100,31 @@ fun ChatScreen(
                         fontWeight = FontWeight.Bold
                     )
                     if (effectiveModel.isNotBlank()) {
-                        Text(
-                            text = effectiveModel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box {
+                            Text(
+                                text = effectiveModel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { showModelMenu = true }
+                            )
+                            DropdownMenu(
+                                expanded = showModelMenu,
+                                onDismissRequest = { showModelMenu = false }
+                            ) {
+                                availableModels.forEach { model ->
+                                    DropdownMenuItem(
+                                        text = { Text(model.displayName) },
+                                        onClick = {
+                                            viewModel.selectModel(model)
+                                            showModelMenu = false
+                                        },
+                                        leadingIcon = if (selectedModel?.id == model.id) {
+                                            { Icon(Icons.Default.Check, contentDescription = null) }
+                                        } else null
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

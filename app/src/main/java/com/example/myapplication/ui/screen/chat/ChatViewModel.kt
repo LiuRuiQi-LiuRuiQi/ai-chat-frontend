@@ -202,12 +202,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val localMessages = messageRepo.getMessagesOnce(currentSessionId)
                 val pending = attachmentRepo.getPendingBySessionId(currentSessionId)
 
-                // 立即绑定待发送附件到本次用户消息（不等待回复完成）
-                pending.forEach { attachment ->
-                    attachmentRepo.bindToMessage(attachment.id, userMessageId)
-                }
-                _pendingAttachments.value = emptyList()
-
                 // 注意：system prompt 必须注入在最前面（覆盖 sendHistory 与不发送历史两种分支）
                 // 消息顺序：① preset.systemPrompt → ② character.description → ③ worldbook 命中内容 → ④ 历史消息 → ⑤ 当前用户输入
                 val historyMessages = buildList {
@@ -289,6 +283,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                             )
                         }
+
+                        // 绑定待发送附件到本次用户消息
+                        pending.forEach { attachment ->
+                            attachmentRepo.bindToMessage(attachment.id, userMessageId)
+                        }
+                        _pendingAttachments.value = emptyList()
 
                         // 仅在"首轮 AI 回复完成后"自动生成标题
                         if (shouldAutoTitleOnFirstAssistantReply) {
