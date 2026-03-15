@@ -43,4 +43,17 @@ interface MessageDao {
     /** 删除指定会话的所有消息 */
     @Query("DELETE FROM messages WHERE sessionId = :sessionId")
     suspend fun deleteBySessionId(sessionId: Long)
+
+    /** 按 ID 删除单条消息 */
+    @Query("DELETE FROM messages WHERE id = :messageId")
+    suspend fun deleteById(messageId: Long)
+
+    /** 删除指定消息之后的所有消息（用于编辑后重新生成） */
+    @Query("DELETE FROM messages WHERE sessionId = :sessionId AND id > :messageId")
+    suspend fun deleteMessagesAfter(sessionId: Long, messageId: Long)
+
+    /** 按 ID 获取单条消息 */
+    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND id = :messageId")
+    suspend fun getMessageById(sessionId: Long, messageId: Long): MessageEntity?
+
 }

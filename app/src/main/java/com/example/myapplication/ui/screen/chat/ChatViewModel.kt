@@ -100,6 +100,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      /** 待发送的附件列表（未绑定到消息） */
      private val _pendingAttachments = MutableStateFlow<List<AttachmentEntity>>(emptyList())
      val pendingAttachments: StateFlow<List<AttachmentEntity>> = _pendingAttachments.asStateFlow()
+     /** 正在编辑的消息 ID */
+     private val _editingMessageId = MutableStateFlow<Long?>(null)
+     val editingMessageId: StateFlow<Long?> = _editingMessageId.asStateFlow()
+
+     /** 编辑中的消息内容 */
+     private val _editingMessageContent = MutableStateFlow("")
+     val editingMessageContent: StateFlow<String> = _editingMessageContent.asStateFlow()
+
 
      /** 加载指定会话数据 */
      fun loadSession(sessionId: Long) {
@@ -493,4 +501,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _errorMessages.emit(message)
         _isLoading.value = false
     }
+
+    /** 开始编辑消息 */
+    fun startEditMessage(messageId: Long, content: String) {
+        _editingMessageId.value = messageId
+        _editingMessageContent.value = content
+    }
+
+    /** 取消编辑 */
+    fun cancelEditMessage() {
+        _editingMessageId.value = null
+        _editingMessageContent.value = ""
+    }
+
+    /** 删除消息 */
+    fun deleteMessage(messageId: Long) {
+        if (currentSessionId == -1L) return
+        viewModelScope.launch {
+            messageRepo.deleteMessage(messageId)
+        }
+    }
+
+    /** 重新生成 Assistant 回复 */
+    fun regenerateMessage(messageId: Long) {
+        if (currentSessionId == -1L) return
+        viewModelScope.launch {
+            // 获取要删除的消息
+            val message = messageRepo.getMessageById(currentSessionId, messageId) ?: return@launch
+            
+            // 删除该消息及其后续所有消息
+            messageRepo.deleteMessagesAfter(currentSessionId, messageId - 1)
+            messageRepo.deleteMessage(messageId)
+            
+            // 获取前一条消息（应该是 user 消息）
+            val messages = messageRepo.getMessagesOnce(currentSessionId)
+            val prevMessage = messages.lastOrNull()
+            
+            if (prevMessage != null && prevMessage.role == "user") {
+                // 重新发送该用户消息
+                sendMessage(prevMessage.content)
+            }
+        }
+    }
+
+    /** 复制消息到剪贴板 */
+    fun copyMessageToClipboard(context: android.content.Context, content: String) {
+        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("message", content)
+        clipboard.setPrimaryClip(clip)
+    }
+
 }

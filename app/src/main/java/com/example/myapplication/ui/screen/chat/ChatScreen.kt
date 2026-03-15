@@ -1,5 +1,4 @@
 package com.example.myapplication.ui.screen.chat
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +48,15 @@ import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.local.entity.CharacterEntity
 import com.example.myapplication.data.local.entity.MessageEntity
 import com.example.myapplication.ui.component.MarkdownText
-
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import android.content.Context
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.platform.LocalContext
 /**
  * 聊天屏幕 - 主聊天界面
  * 显示消息列表、输入框、顶部栏（含模型选择、角色选择）
@@ -152,7 +159,30 @@ fun ChatScreen(
         }
 
         // 消息列表
-        LazyColumn(
+        
+    // 编辑状态提示栏
+    val editingMessageId by viewModel.editingMessageId.collectAsState()
+    if (editingMessageId != null) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "正在编辑消息",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            IconButton(onClick = { viewModel.cancelEditMessage() }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "取消编辑", modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+
+    LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -161,7 +191,12 @@ fun ChatScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(messages) { message ->
-                ChatMessageBubble(message = message)
+                MessageBubbleWithMenu(
+                    message = message,
+                    viewModel = viewModel,
+                    onEdit = { viewModel.startEditMessage(message.id, message.content); inputText = message.content },
+                    onDelete = { /* 删除逻辑在菜单中处理 */ }
+                )
             }
         }
 
@@ -194,6 +229,11 @@ fun ChatScreen(
             IconButton(
                 onClick = {
                     if (inputText.isNotBlank()) {
+                        if (editingMessageId != null) {
+                            // 编辑模式：删除该消息及之后的消息，然后重新发送
+                            viewModel.deleteMessage(editingMessageId!!)
+                            viewModel.cancelEditMessage()
+                        }
                         viewModel.sendMessage(inputText)
                         inputText = ""
                     }
@@ -235,11 +275,20 @@ fun ChatScreen(
 }
 
 /**
- * 聊天消息气泡
+ * 聊天消息气泡 - 支持长按菜单
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChatMessageBubble(message: MessageEntity) {
+fun MessageBubbleWithMenu(
+    message: MessageEntity,
+    viewModel: ChatViewModel,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val isUser = message.role == "user"
+    val context = LocalContext.current
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -249,23 +298,99 @@ fun ChatMessageBubble(message: MessageEntity) {
     ) {
         Box(
             modifier = Modifier
-                 .background(
-                     color = if (isUser)
-                         MaterialTheme.colorScheme.primary
-                     else
-                         MaterialTheme.colorScheme.surfaceVariant,
-                     shape = RoundedCornerShape(12.dp)
-                 )
-                 .padding(12.dp)
-                 .widthIn(max = 280.dp)
-         ) {
-              MarkdownText(
-                  text = message.content,
-                  contentColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
-              )
-         }
-     }
- }
+                .background(
+                    color = if (isUser)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .padding(12.dp)
+                .widthIn(max = 280.dp)
+                .combinedClickable(
+                    onClick = { },
+                    onLongClick = { showMenu = true }
+                )
+        ) {
+            MarkdownText(
+                text = message.content,
+                contentColor = if (isUser) Color.White else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        // 长按菜单
+        Box {
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                // 复制
+                DropdownMenuItem(
+                    text = { Text("复制") },
+                    onClick = {
+                        viewModel.copyMessageToClipboard(context, message.content)
+                        showMenu = false
+                    }
+                )
+
+                // 编辑（仅 user 消息）
+                if (isUser) {
+                    DropdownMenuItem(
+                        text = { Text("编辑") },
+                        onClick = {
+                            onEdit()
+                            showMenu = false
+                        }
+                    )
+                }
+
+                // 重新生成（仅 assistant 消息）
+                if (!isUser) {
+                    DropdownMenuItem(
+                        text = { Text("重新生成") },
+                        onClick = {
+                            viewModel.regenerateMessage(message.id)
+                            showMenu = false
+                        }
+                    )
+                }
+
+                // 删除
+                DropdownMenuItem(
+                    text = { Text("删除") },
+                    onClick = {
+                        showDeleteDialog = true
+                        showMenu = false
+                    }
+                )
+            }
+        }
+    }
+
+    // 删除确认弹窗
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("删除消息") },
+            text = { Text("确定要删除这条消息吗？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMessage(message.id)
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
 
  /**
   * 模型选择弹窗

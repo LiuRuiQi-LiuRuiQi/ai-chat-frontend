@@ -67,4 +67,15 @@ class MessageRepository(private val messageDao: MessageDao) {
 
     /** 删除指定会话的所有消息 */
     suspend fun deleteBySessionId(sessionId: Long) = messageDao.deleteBySessionId(sessionId)
+
+    /** 删除指定消息 */
+    suspend fun deleteMessage(messageId: Long) = messageDao.deleteById(messageId)
+
+    /** 删除指定消息之后的所有消息 */
+    suspend fun deleteMessagesAfter(sessionId: Long, messageId: Long) =
+        messageDao.deleteMessagesAfter(sessionId, messageId)
+
+    /** 获取指定消息 */
+    suspend fun getMessageById(sessionId: Long, messageId: Long): MessageEntity? =
+        messageDao.getMessageById(sessionId, messageId)
 }
