@@ -1,0 +1,199 @@
+package com.example.myapplication.ui.navigation
+
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.myapplication.ChatApp
+import com.example.myapplication.ui.screen.character.CharacterEditScreen
+import com.example.myapplication.ui.screen.character.CharacterListScreen
+import com.example.myapplication.ui.screen.chat.ChatScreen
+import com.example.myapplication.ui.screen.preset.PresetEditScreen
+import com.example.myapplication.ui.screen.preset.PresetListScreen
+import com.example.myapplication.ui.screen.provider.ProviderEditScreen
+import com.example.myapplication.ui.screen.provider.ProviderListScreen
+import com.example.myapplication.ui.screen.sessionlist.SessionListScreen
+import com.example.myapplication.ui.screen.settings.SettingsScreen
+import com.example.myapplication.ui.screen.worldbook.WorldBookEditScreen
+import com.example.myapplication.ui.screen.worldbook.WorldBookListScreen
+import com.example.myapplication.ui.screen.worldbook.WorldBookViewModel
+
+@Composable
+fun AppNavGraph() {
+    val factory = (LocalContext.current.applicationContext as ChatApp).viewModelFactory
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "session_list") {
+        composable("session_list") {
+            SessionListScreen(
+                viewModel = viewModel(factory = factory),
+                onSessionClick = { sessionId ->
+                    navController.navigate("chat/$sessionId")
+                },
+                onNewSession = { sessionId ->
+                    navController.navigate("chat/$sessionId")
+                },
+                onOpenProviders = {
+                    navController.navigate("providers")
+                },
+                onOpenPresets = {
+                    navController.navigate("preset_list")
+                },
+                onOpenSettings = {
+                    navController.navigate("settings")
+                },
+                onOpenCharacters = {
+                    navController.navigate("character_list")
+                },
+                onOpenWorldBook = {
+                    navController.navigate("world_book_list")
+                }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(
+            "chat/{sessionId}",
+            arguments = listOf(
+                navArgument("sessionId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: -1L
+            val chatViewModel: com.example.myapplication.ui.screen.chat.ChatViewModel = viewModel(factory = factory)
+            androidx.compose.runtime.LaunchedEffect(sessionId) {
+                chatViewModel.loadSession(sessionId)
+            }
+            ChatScreen(
+                viewModel = chatViewModel,
+                onNavigateToCharacterList = {
+                    navController.navigate("character_list")
+                }
+            )
+        }
+
+        composable("providers") {
+            ProviderListScreen(
+                viewModel = viewModel(factory = factory),
+                onNavigateBack = { navController.popBackStack() },
+                onAddProvider = { navController.navigate("provider_edit?providerId=-1") },
+                onEditProvider = { providerId ->
+                    navController.navigate("provider_edit?providerId=$providerId")
+                }
+            )
+        }
+
+        composable(
+            route = "provider_edit?providerId={providerId}",
+            arguments = listOf(
+                navArgument("providerId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val rawProviderId = backStackEntry.arguments?.getLong("providerId") ?: -1L
+            val providerId = rawProviderId.takeIf { it > 0L }
+            ProviderEditScreen(
+                providerId = providerId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("preset_list") {
+            PresetListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { presetId ->
+                    navController.navigate("preset_edit?presetId=$presetId")
+                }
+            )
+        }
+
+        composable(
+            route = "preset_edit?presetId={presetId}",
+            arguments = listOf(
+                navArgument("presetId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val presetId = backStackEntry.arguments?.getLong("presetId") ?: -1L
+            PresetEditScreen(
+                presetId = presetId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("character_list") {
+            CharacterListScreen(
+                viewModel = viewModel(factory = factory),
+                onBack = { navController.popBackStack() },
+                onCreateCharacter = {
+                    navController.navigate("character_edit?characterId=-1")
+                },
+                onSelectCharacter = { character ->
+                    navController.navigate("character_edit?characterId=${character.id}")
+                }
+            )
+        }
+
+        composable(
+            route = "character_edit?characterId={characterId}",
+            arguments = listOf(
+                navArgument("characterId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val characterId = backStackEntry.arguments?.getLong("characterId") ?: -1L
+            CharacterEditScreen(
+                characterId = characterId.takeIf { it > 0 },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("world_book_list") {
+            WorldBookListScreen(
+                viewModel = viewModel(factory = factory),
+                onNavigateBack = { navController.popBackStack() },
+                onEditEntry = { entryId ->
+                    navController.navigate("world_book_edit?entryId=$entryId")
+                }
+            )
+        }
+
+        composable(
+            route = "world_book_edit?entryId={entryId}",
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val entryId = backStackEntry.arguments?.getLong("entryId") ?: -1L
+            WorldBookEditScreen(
+                viewModel = viewModel(factory = factory),
+                entryId = entryId.takeIf { it > 0 },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+    }
+}
