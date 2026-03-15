@@ -2,6 +2,6 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 应用缓存目录用于存储 APK -->
     <cache-path
-        android:name="apk"
-        android:path="apk/" />
+        name="apk_cache"
+        path="apk/" />
 </paths>
