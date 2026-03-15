@@ -4,4 +4,8 @@
     <cache-path
         name="apk_cache"
         path="apk/" />
+    <!-- 应用缓存目录用于存储附件 -->
+    <cache-path
+        name="attachments"
+        path="attachments/" />
 </paths>
