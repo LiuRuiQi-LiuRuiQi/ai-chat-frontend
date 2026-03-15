@@ -1,0 +1,185 @@
+package com.example.myapplication.data.remote
+
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+
+/**
+ * GitHub Release API 响应数据类
+ */
+data class GitHubRelease(
+    @SerializedName("tag_name")
+    val tagName: String,
+    @SerializedName("body")
+    val body: String,
+    @SerializedName("assets")
+    val assets: List<GitHubAsset>
+)
+
+/**
+ * GitHub Asset 数据类
+ */
+data class GitHubAsset(
+    @SerializedName("name")
+    val name: String,
+    @SerializedName("browser_download_url")
+    val browserDownloadUrl: String
+)
+
+/**
+ * 远端版本信息数据类
+ */
+data class RemoteVersionInfo(
+    val versionCode: Int,
+    val versionName: String,
+    val apkUrl: String,
+    val changelog: String
+)
+
+/**
+ * 更新服务 - 负责检查更新和下载 APK
+ * 使用 GitHub Release API 作为更新源
+ */
+class UpdateService(
+    private val context: Context,
+    private val okHttpClient: OkHttpClient
+) {
+
+    companion object {
+        // GitHub Release API URL
+        private const val GITHUB_API_URL = "https://api.github.com/repos/LiuRuiQi-LiuRuiQi/ai-chat-frontend/releases/latest"
+    }
+
+    /**
+     * 检查更新 - 从 GitHub Release API 获取最新版本信息
+     * @return RemoteVersionInfo 或 null（网络错误/解析失败）
+     */
+    suspend fun checkUpdate(): RemoteVersionInfo? = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val request = Request.Builder()
+                .url(GITHUB_API_URL)
+                .build()
+
+            val response = okHttpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext null
+            }
+
+            val body = response.body?.string() ?: return@withContext null
+            val gson = Gson()
+            val release = gson.fromJson(body, GitHubRelease::class.java)
+
+            // 从 tag_name 解析版本号（格式: vX.X.X）
+            val versionName = release.tagName.removePrefix("v")
+            val versionCode = parseVersionCode(versionName)
+
+            // 查找 APK 文件
+            val apkAsset = release.assets.find { it.name.endsWith(".apk") }
+            if (apkAsset == null) {
+                return@withContext null
+            }
+
+            RemoteVersionInfo(
+                versionCode = versionCode,
+                versionName = versionName,
+                apkUrl = apkAsset.browserDownloadUrl,
+                changelog = release.body
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * 下载 APK 文件
+     * @param apkUrl APK 下载链接
+     * @param onProgress 进度回调 (bytesDownloaded, totalBytes)
+     * @return 下载成功返回 File，失败返回 null
+     */
+    suspend fun downloadApk(
+        apkUrl: String,
+        onProgress: (Long, Long) -> Unit = { _, _ -> }
+    ): File? = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val request = Request.Builder()
+                .url(apkUrl)
+                .build()
+
+            val response = okHttpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext null
+            }
+
+            val body = response.body ?: return@withContext null
+            val totalBytes = body.contentLength()
+
+            // 创建缓存目录
+            val apkDir = File(context.cacheDir, "apk")
+            if (!apkDir.exists()) {
+                apkDir.mkdirs()
+            }
+
+            // 生成 APK 文件名
+            val apkFile = File(apkDir, "app_update.apk")
+
+            // 写入文件
+            var bytesDownloaded = 0L
+            apkFile.outputStream().use { fileOut ->
+                body.byteStream().use { inputStream ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        fileOut.write(buffer, 0, bytesRead)
+                        bytesDownloaded += bytesRead
+                        onProgress(bytesDownloaded, totalBytes)
+                    }
+                }
+            }
+
+            apkFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * 获取已下载的 APK 文件（如果存在）
+     */
+    fun getDownloadedApk(): File? {
+        val apkFile = File(context.cacheDir, "apk/app_update.apk")
+        return if (apkFile.exists()) apkFile else null
+    }
+
+    /**
+     * 清理已下载的 APK 文件
+     */
+    fun clearDownloadedApk() {
+        val apkFile = File(context.cacheDir, "apk/app_update.apk")
+        if (apkFile.exists()) {
+            apkFile.delete()
+        }
+    }
+
+    /**
+     * 解析版本号为整数（用于版本比较）
+     * 格式: 1.0.0 -> 100 (major*100 + minor*10 + patch)
+     */
+    private fun parseVersionCode(versionName: String): Int {
+        return try {
+            val parts = versionName.split(".")
+            val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+            major * 100 + minor * 10 + patch
+        } catch (e: Exception) {
+            0
+        }
+    }
+}

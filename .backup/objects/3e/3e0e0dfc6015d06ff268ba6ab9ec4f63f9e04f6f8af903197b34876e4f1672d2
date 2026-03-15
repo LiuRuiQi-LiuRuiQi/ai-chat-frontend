@@ -1,0 +1,205 @@
+package com.example.myapplication.ui.screen.settings
+
+import android.app.Application
+import android.content.pm.PackageManager
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.myapplication.ChatApp
+import com.example.myapplication.data.remote.RemoteVersionInfo
+import com.example.myapplication.data.remote.UpdateService
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.io.File
+
+/**
+ * 版本信息数据类
+ */
+data class VersionInfo(
+    val versionName: String,
+    val versionCode: Long,
+    val databaseVersion: Int
+)
+
+/**
+ * 设置页 ViewModel
+ * 负责读写 DataStore 中的设置项及版本信息获取
+ */
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val settingsDataStore = (application as ChatApp).settingsDataStore
+    private val context = application
+    
+    // 延迟初始化 UpdateService，以便在检查更新时获取最新的 PAT
+    private fun getUpdateService(): UpdateService {
+        val pat = settingsDataStore.githubPat.value
+        return UpdateService(application, (application as ChatApp).okHttpClient, pat)
+    }
+
+    /** Markdown 渲染开关状态 */
+    val isMarkdownEnabled: StateFlow<Boolean> = settingsDataStore.isMarkdownEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    /** 当前激活的 Provider ID */
+    val activeProviderId: StateFlow<Long?> = settingsDataStore.activeProviderId
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    /** 当前激活的 Preset ID */
+    val activePresetId: StateFlow<Long?> = settingsDataStore.activePresetId
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    /** 是否发送历史消息 */
+    val isSendHistory: StateFlow<Boolean> = settingsDataStore.isSendHistory
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    /** 最大历史消息条数 */
+    val maxHistoryCount: StateFlow<Int> = settingsDataStore.maxHistoryCount
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 20
+        )
+
+    /** 检查更新状态 */
+    private val _updateCheckState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
+    val updateCheckState: StateFlow<UpdateCheckState> = _updateCheckState.asStateFlow()
+
+    /** 下载进度 (bytesDownloaded, totalBytes) */
+    private val _downloadProgress = MutableStateFlow<Pair<Long, Long>>(0L to 0L)
+    val downloadProgress: StateFlow<Pair<Long, Long>> = _downloadProgress.asStateFlow()
+
+    /** 已下载的 APK 文件 */
+    private val _downloadedApkFile = MutableStateFlow<File?>(null)
+    val downloadedApkFile: StateFlow<File?> = _downloadedApkFile.asStateFlow()
+
+    /** 更新 Markdown 渲染开关 */
+    fun setMarkdownEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setMarkdownEnabled(enabled)
+        }
+    }
+
+    /** 更新是否发送历史消息 */
+    fun setSendHistory(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setSendHistory(enabled)
+        }
+    }
+
+    /** 更新最大历史消息条数 */
+    fun setMaxHistoryCount(count: Int) {
+        viewModelScope.launch {
+            settingsDataStore.setMaxHistoryCount(count)
+        }
+    }
+
+     /** 获取版本信息 */
+     fun getVersionInfo(): VersionInfo {
+         return try {
+             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+             VersionInfo(
+                 versionName = packageInfo.versionName ?: "unknown",
+                 versionCode = packageInfo.longVersionCode,
+                 databaseVersion = settingsDataStore.getDatabaseVersion()
+             )
+         } catch (e: PackageManager.NameNotFoundException) {
+             VersionInfo("unknown", 0L, settingsDataStore.getDatabaseVersion())
+         }
+     }
+
+     /** 检查更新 */
+     fun checkUpdate() {
+         viewModelScope.launch {
+             _updateCheckState.value = UpdateCheckState.Checking
+             try {
+                 val remoteVersion = updateService.checkUpdate()
+                 if (remoteVersion != null) {
+                     val currentVersion = getVersionInfo()
+                     if (remoteVersion.versionCode > currentVersion.versionCode) {
+                         _updateCheckState.value = UpdateCheckState.UpdateAvailable(remoteVersion)
+                     } else {
+                         _updateCheckState.value = UpdateCheckState.UpToDate
+                     }
+                 } else {
+                     _updateCheckState.value = UpdateCheckState.Error("无法获取版本信息")
+                 }
+             } catch (e: Exception) {
+                 _updateCheckState.value = UpdateCheckState.Error(e.message ?: "检查更新失败")
+             }
+         }
+     }
+
+     /** 下载 APK */
+     fun downloadApk(apkUrl: String) {
+         viewModelScope.launch {
+             _updateCheckState.value = UpdateCheckState.Downloading
+             try {
+                 val apkFile = updateService.downloadApk(apkUrl) { downloaded, total ->
+                     _downloadProgress.value = downloaded to total
+                 }
+                 if (apkFile != null) {
+                     _downloadedApkFile.value = apkFile
+                     _updateCheckState.value = UpdateCheckState.DownloadComplete
+                 } else {
+                     _updateCheckState.value = UpdateCheckState.Error("下载失败")
+                 }
+             } catch (e: Exception) {
+                 _updateCheckState.value = UpdateCheckState.Error(e.message ?: "下载失败")
+             }
+         }
+     }
+
+     /** 重置更新状态 */
+     fun resetUpdateState() {
+         _updateCheckState.value = UpdateCheckState.Idle
+         _downloadProgress.value = 0L to 0L
+     }
+
+      /** 清理已下载的 APK */
+      fun clearDownloadedApk() {
+          updateService.clearDownloadedApk()
+          _downloadedApkFile.value = null
+      }
+
+      /** 安装 APK */
+      fun installApk(apkFile: File) {
+          try {
+              val apkInstaller = com.example.myapplication.util.ApkInstaller
+              apkInstaller.installApk(context, apkFile)
+          } catch (e: Exception) {
+              _updateCheckState.value = UpdateCheckState.Error("安装失败: ${e.message}")
+          }
+      }
+}
+
+/**
+ * 更新检查状态
+ */
+sealed class UpdateCheckState {
+     object Idle : UpdateCheckState()
+     object Checking : UpdateCheckState()
+     object UpToDate : UpdateCheckState()
+     data class UpdateAvailable(val remoteVersion: RemoteVersionInfo) : UpdateCheckState()
+     object Downloading : UpdateCheckState()
+     object DownloadComplete : UpdateCheckState()
+     data class Error(val message: String) : UpdateCheckState()
+}
