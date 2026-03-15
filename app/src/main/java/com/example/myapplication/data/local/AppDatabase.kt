@@ -39,7 +39,7 @@ import com.example.myapplication.data.local.entity.WorldBookEntryEntity
         WorldBookEntryEntity::class,
         AttachmentEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -167,6 +167,16 @@ abstract class AppDatabase : RoomDatabase() {
               }
           }
 
+        /**
+         * MIGRATION 8 -> 9：
+         * characters 表新增 tags 字段（标签，逗号分隔字符串）
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `characters` ADD COLUMN `tags` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -178,7 +188,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DB_NAME
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     // 当前仍使用 fallbackToDestructiveMigration 作为开发阶段兜底：
                     // - 方便快速迭代 schema，不阻断启动
                     // - future 版本会移除 fallback 并严格依赖显式 Migration

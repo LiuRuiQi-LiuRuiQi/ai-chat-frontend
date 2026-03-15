@@ -66,6 +66,7 @@ fun CharacterEditScreen(
             name = it.name
             description = it.description
             greeting = it.greeting
+            tags = it.tags
         }
     }
 
@@ -123,6 +124,17 @@ fun CharacterEditScreen(
                 maxLines = 4
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = tags,
+                onValueChange = { tags = it },
+                label = { Text("标签（可选，逗号分隔）") },
+                placeholder = { Text("例如：助手,编程,创意") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -134,7 +146,8 @@ fun CharacterEditScreen(
                                 id = characterId?.takeIf { it > 0 },
                                 name = name,
                                 description = description,
-                                greeting = greeting
+                                greeting = greeting,
+                                tags = tags
                             )
                             onNavigateBack()
                         }
