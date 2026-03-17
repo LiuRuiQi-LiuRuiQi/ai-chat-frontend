@@ -52,6 +52,8 @@ fun ChatScreen(
     var showModelMenu by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var pendingExportContent by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteTargetId by remember { mutableStateOf<Long?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -189,7 +191,8 @@ fun ChatScreen(
                         viewModel.startEditMessage(id, content)
                     },
                     onDelete = { id ->
-                        viewModel.deleteMessage(id)
+                        deleteTargetId = id
+                        showDeleteDialog = true
                     }
                 )
             }
@@ -309,6 +312,79 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelEditMessage() }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // 删除确认对话框
+    if (showDeleteDialog && deleteTargetId != null) {
+        val target = messages.firstOrNull { it.id == deleteTargetId }
+        val targetIndex = target?.let { messages.indexOf(it) } ?: -1
+        val canDeleteFollowingAssistant = target?.role == "user" &&
+            targetIndex >= 0 &&
+            targetIndex + 1 < messages.size &&
+            messages[targetIndex + 1].role == "assistant"
+
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                deleteTargetId = null
+            },
+            title = { Text("删除消息") },
+            text = {
+                Column {
+                    Text("确定要删除这条消息吗？")
+                    if (target != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = target.content.take(80),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (canDeleteFollowingAssistant) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "这条消息后面还有一条 AI 回复。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteMessage(deleteTargetId!!)
+                            showDeleteDialog = false
+                            deleteTargetId = null
+                        }
+                    ) {
+                        Text("仅删除此条")
+                    }
+                    if (canDeleteFollowingAssistant) {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteMessage(deleteTargetId!!, deleteFollowingAssistant = true)
+                                showDeleteDialog = false
+                                deleteTargetId = null
+                            }
+                        ) {
+                            Text("删除此条及回复")
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        deleteTargetId = null
+                    }
+                ) {
                     Text("取消")
                 }
             }

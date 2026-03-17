@@ -545,11 +545,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _editingMessageContent.value = ""
     }
 
-    /** 删除消息 */
-    fun deleteMessage(messageId: Long) {
+    /** 删除消息（可选：同时删除其后一条 AI 回复） */
+    fun deleteMessage(messageId: Long, deleteFollowingAssistant: Boolean = false) {
         if (currentSessionId == -1L) return
         viewModelScope.launch {
-            messageRepo.deleteMessage(messageId)
+            if (_editingMessageId.value == messageId) {
+                cancelEditMessage()
+            }
+
+            if (!deleteFollowingAssistant) {
+                messageRepo.deleteMessage(messageId)
+                sessionRepo.updateTimestamp(currentSessionId)
+                return@launch
+            }
+
+            val messages = messageRepo.getMessagesOnce(currentSessionId)
+            val index = messages.indexOfFirst { it.id == messageId }
+            if (index == -1) return@launch
+
+            val idsToDelete = mutableListOf<Long>()
+            idsToDelete.add(messageId)
+            if (index + 1 < messages.size && messages[index + 1].role == "assistant") {
+                idsToDelete.add(messages[index + 1].id)
+            }
+
+            idsToDelete.forEach { id -> messageRepo.deleteMessage(id) }
+            sessionRepo.updateTimestamp(currentSessionId)
         }
     }
 
